@@ -5,3 +5,5 @@ Output should be a shared library that can be loaded by [vooya](http://www.offmi
 
 Testing can be done by putting the plugin shared library into vooya's plugin folder or by running:
 > vooya --plugin \<\<output library\>\>
+
+[voo_plugin.h](voo_plugin.g) stems from [vooya's plugin repository](https://github.com/arionik/vooya-Plugin-API).
