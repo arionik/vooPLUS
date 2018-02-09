@@ -205,7 +205,7 @@ VP_API BOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, void
 	}
 	else {
 		if( p_reader->properties.arrangement == vooDataArrangement_Unknown )
-		p_reader->properties.arrangement = vooDA_planar_420;
+			p_reader->properties.arrangement = vooDA_planar_420;
 		if( 0 >= p_reader->properties.bitsPerChannel )
 			p_reader->properties.bitsPerChannel = 8;
 	}
