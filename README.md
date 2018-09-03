@@ -8,4 +8,4 @@ Testing can be done by putting the plugin shared library into vooya's plugin fol
 vooya --plugin <<output library>>
 ```
 
-[voo_plugin.h](voo_plugin.h) stems from [vooya's plugin repository](https://github.com/arionik/vooya-Plugin-API).
+[voo_plugin.h](voo_plugin.h) stems from [vooya's plugin repository](https://github.com/arionik/vooya-Plugin-API). FFmpeg version 3.4.1 was used.
