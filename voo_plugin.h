@@ -124,6 +124,8 @@ typedef enum
 	vooDA_yuv10,
 	vooDA_p010,
 	vooDA_p016,
+	vooDA_interleaved444float,
+	vooDA_interleaved444Double,
 	vooNumDataArrangements
 } voo_dataArrangement_t;
 
@@ -259,12 +261,12 @@ typedef struct {
 
 	// Pixels a and b from sequence A and B, component 1,2,3
 	// and data type (inferred from voo_sequence_t::p_info)
-	union{ unsigned int c1_a; double c1_ad; };
-	union{ unsigned int c2_a; double c2_ad; };
-	union{ unsigned int c3_a; double c3_ad; };
-	union{ unsigned int c1_b; double c1_bd; };
-	union{ unsigned int c2_b; double c2_bd; };
-	union{ unsigned int c3_b; double c3_bd; };
+	union{ int c1_a; double c1_ad; };
+	union{ int c2_a; double c2_ad; };
+	union{ int c3_a; double c3_ad; };
+	union{ int c1_b; double c1_bd; };
+	union{ int c2_b; double c2_bd; };
+	union{ int c3_b; double c3_bd; };
 
 	int x,y; // position relative to top, left
 
@@ -305,11 +307,12 @@ typedef struct
 	// May be called multiple times for the same frame.
 	void (*on_frame_done)( voo_video_frame_metadata_t * );
 
-	// Flags to signal something to vooya (for future use)
+	// Flags to signal something to vooya
+	#define VOOCallbackFlag_NeedsConsole 0x02 // tell vooya to auto-open its console window
 	int flags;
 
 	// type determines which callback signature will be called
-	vooya_callback_type_t type;
+	vooya_callback_type_t cb_type;
 
 	union{
 		// actual callback function (required)

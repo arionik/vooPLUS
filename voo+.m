@@ -13,6 +13,10 @@
  *  Lesser General Public License for more details.
  */
 
+/*
+ *	Build with: clang -framework Cocoa -framework AVFoundation -framework CoreVideo -framework CoreMedia -shared -o ./voo+.dylib voo+.m
+ */
+
 #import <Cocoa/Cocoa.h>
 #import <AVFoundation/AVFoundation.h>
 #include <stdlib.h>
