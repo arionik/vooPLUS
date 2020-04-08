@@ -247,17 +247,17 @@ VP_API BOOL in_get_properties( voo_sequence_t *p_info, void *p_user_seq ){
 	p_info->width = (int)mov_reader.width;
 	p_info->height = (int)mov_reader.height;
 	p_info->fps = mov_reader.fps;
-	p_info->colorSpace = vooCS_YUV;
+	p_info->color_space = vooCS_YUV;
 	p_info->channel_order = vooCO_c123;
 	if( mov_reader.pixel_format == kCVPixelFormatType_422YpCbCr10 ){
 		p_info->arrangement = vooDA_v210;
-		p_info->bitsPerChannel = 10;
+		p_info->bits_per_channel = 10;
 	} else if( mov_reader.pixel_format == kCVPixelFormatType_444YpCbCr10 ){
 		p_info->arrangement = vooDA_v410;
-		p_info->bitsPerChannel = 10;
+		p_info->bits_per_channel = 10;
 	} else {
 		p_info->arrangement = vooDA_planar_420;
-		p_info->bitsPerChannel = 8;
+		p_info->bits_per_channel = 8;
 	}
 
 	return TRUE;
