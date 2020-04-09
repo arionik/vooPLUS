@@ -170,18 +170,18 @@ VP_API BOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, void
 
 	memset( &p_reader->properties, 0, sizeof(voo_sequence_t) );
 
-	p_reader->properties.bitsPerChannel = p_reader->stream->codecpar->bits_per_raw_sample;
-	if( p_reader->properties.bitsPerChannel == 0 )
-		p_reader->properties.bitsPerChannel = p_reader->stream->codecpar->bits_per_coded_sample / 3;
+	p_reader->properties.bits_per_channel = p_reader->stream->codecpar->bits_per_raw_sample;
+	if( p_reader->properties.bits_per_channel == 0 )
+		p_reader->properties.bits_per_channel = p_reader->stream->codecpar->bits_per_coded_sample / 3;
 	
 	switch( p_reader->codec_ctx->pix_fmt ){
 	case AV_PIX_FMT_YUV420P10LE:
 		p_reader->properties.arrangement = vooDA_planar_420;
-		p_reader->properties.bitsPerChannel = 10;
+		p_reader->properties.bits_per_channel = 10;
 		break;
 	case AV_PIX_FMT_YUV422P10LE:
 		p_reader->properties.arrangement = vooDA_planar_422;
-		p_reader->properties.bitsPerChannel = 10;
+		p_reader->properties.bits_per_channel = 10;
 		break;
 	default: break;
 	}
@@ -190,26 +190,26 @@ VP_API BOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, void
 	{
 		if( p_reader->stream->codecpar->codec_tag == 'h4pa' ){
 			p_reader->properties.arrangement = vooDA_planar_444;
-			if( 10 >= p_reader->properties.bitsPerChannel )
-				p_reader->properties.bitsPerChannel = 10;
+			if( 10 >= p_reader->properties.bits_per_channel )
+				p_reader->properties.bits_per_channel = 10;
 		} else {
 			p_reader->properties.arrangement = vooDA_planar_422;
-			if( 10 >= p_reader->properties.bitsPerChannel )
-				p_reader->properties.bitsPerChannel = 10;
+			if( 10 >= p_reader->properties.bits_per_channel )
+				p_reader->properties.bits_per_channel = 10;
 		}
 	}
 	else if( p_reader->stream->codecpar->codec_id == AV_CODEC_ID_V210 )
 	{
 		p_reader->properties.arrangement = vooDA_planar_422;
-		p_reader->properties.bitsPerChannel = 10;
+		p_reader->properties.bits_per_channel = 10;
 	}
 	else {
 		if( p_reader->properties.arrangement == vooDataArrangement_Unknown )
 			p_reader->properties.arrangement = vooDA_planar_420;
-		if( 0 >= p_reader->properties.bitsPerChannel )
-			p_reader->properties.bitsPerChannel = 8;
+		if( 0 >= p_reader->properties.bits_per_channel )
+			p_reader->properties.bits_per_channel = 8;
 	}
-	p_reader->properties.colorSpace = vooCS_YUV;
+	p_reader->properties.color_space = vooCS_YUV;
 	p_reader->properties.channel_order = vooCO_c123;
 	p_reader->properties.fps = (double)p_reader->stream->avg_frame_rate.num / p_reader->stream->avg_frame_rate.den;
 	p_reader->properties.width = p_reader->stream->codecpar->width;
@@ -291,7 +291,7 @@ VP_API BOOL in_load( unsigned int frame, char *p_buffer, BOOL *pb_skipped, void 
 		{
 			if( p_reader->properties.arrangement == vooDA_v210 ){
 
-				int32_t pel_width = ( p_reader->properties.bitsPerChannel + 7 ) >> 3;
+				int32_t pel_width = ( p_reader->properties.bits_per_channel + 7 ) >> 3;
 
 				memcpy( p_buffer,
 					p_reader->picture->data[ 0 ],
@@ -300,7 +300,7 @@ VP_API BOOL in_load( unsigned int frame, char *p_buffer, BOOL *pb_skipped, void 
 			} else {
 				int32_t chr_sh_x = p_reader->properties.arrangement == vooDA_planar_444 ? 0 : 1;
 				int32_t chr_sh_y = p_reader->properties.arrangement == vooDA_planar_420 ? 1 : 0;
-				int32_t pel_width = ( p_reader->properties.bitsPerChannel + 7 ) >> 3;
+				int32_t pel_width = ( p_reader->properties.bits_per_channel + 7 ) >> 3;
 
 				memcpy( p_buffer,
 					p_reader->picture->data[ 0 ],
