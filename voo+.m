@@ -32,6 +32,7 @@
 @property NSInteger width;
 @property NSInteger height;
 @property float bitrate;
+@property int32_t bitdepth;
 @property NSUInteger frames;
 @property NSUInteger next_frame;
 @property BOOL eof;
@@ -100,18 +101,18 @@ char error[2048];
 		return FALSE;
 	}
 
-	NSArray *videoTracks=[self.movieAsset tracksWithMediaType:AVMediaTypeVideo];
+	NSArray *videoTracks = [self.movieAsset tracksWithMediaType:AVMediaTypeVideo];
 	if( ![videoTracks count] ){
 		self.error = @"This file contains no video.";
 		[self report:self.error];
 		return FALSE;
 	}
 
-	if( [self.subtype isEqualToString:@"hvc1"] ){
-		self.error = @"HEVC is not supported.";
-		[self report:self.error];
-		return FALSE;
-	}
+	// if( [self.subtype isEqualToString:@"hvc1"] ){
+	// 	self.error = @"HEVC is not supported.";
+	// 	[self report:self.error];
+	// 	return FALSE;
+	// }
 
 	AVAssetTrack *videoTrack0 = [videoTracks objectAtIndex:0];
 
@@ -122,16 +123,39 @@ char error[2048];
 	for (id formatDescription in videoTrack0.formatDescriptions) {
 		#define FourCC2Str(code) (char[5]){(code >> 24) & 0xFF, (code >> 16) & 0xFF, (code >> 8) & 0xFF, code & 0xFF, 0}
 		CMFormatDescriptionRef desc = (__bridge CMFormatDescriptionRef)formatDescription;
+		// int depth            = ((NSNumber *)CMFormatDescriptionGetExtension(desc, CFSTR("Depth"))).intValue;
+		// NSString *name       = (NSString *)CMFormatDescriptionGetExtension(desc, CFSTR("FormatName"));
 		CMVideoCodecType codec = CMFormatDescriptionGetMediaType(desc);
 		FourCharCode subType = CMFormatDescriptionGetMediaSubType(desc);
 		self.type = [NSString stringWithCString:(const char *)FourCC2Str(codec) encoding:NSUTF8StringEncoding];
 		self.subtype = [NSString stringWithCString:(const char *)FourCC2Str(subType) encoding:NSUTF8StringEncoding];
+		if ([self.type isEqualToString:@"hvc1"] || [self.type isEqualToString:@"avc1"])
+			self.bitdepth = ((NSNumber *)CMFormatDescriptionGetExtension(desc, CFSTR("BitsPerComponent"))).intValue;
+			// FIXME: ProRes has up to 12bit, this line is correct for all formats
+		if ([self.type isEqualToString:@"jpeg"])
+			self.bitdepth = 8;
+		else
+			self.bitdepth = 10;
 	}
 
-	self.pixel_format = [self.subtype isEqualToString:@"avc1"]
-		? kCVPixelFormatType_420YpCbCr8Planar : ([self.subtype isEqualToString:@"ap4h"]
- 		? kCVPixelFormatType_444YpCbCr10 : kCVPixelFormatType_422YpCbCr10);
-
+	if( [self.subtype isEqualToString:@"v210"] )
+		self.pixel_format = kCVPixelFormatType_422YpCbCr10;
+	else if( [self.subtype isEqualToString:@"jpeg"] )
+		self.pixel_format = kCVPixelFormatType_420YpCbCr8Planar;
+	else if( [self.subtype isEqualToString:@"avc1"] )
+		self.pixel_format = self.bitdepth == 10 ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange : kCVPixelFormatType_420YpCbCr8Planar;
+	else if( [self.subtype isEqualToString:@"apcn"] )
+		self.pixel_format = kCVPixelFormatType_422YpCbCr10;
+	else if( [self.subtype isEqualToString:@"apch"] )
+		self.pixel_format = kCVPixelFormatType_422YpCbCr10;
+	else if( [self.subtype isEqualToString:@"apcs"] )
+		self.pixel_format = kCVPixelFormatType_422YpCbCr10;
+	else if( [self.subtype isEqualToString:@"apco"] )
+		self.pixel_format = kCVPixelFormatType_422YpCbCr10;
+	else if( [self.subtype isEqualToString:@"ap4h"] )
+		self.pixel_format = kCVPixelFormatType_444YpCbCr10;
+	else if( [self.subtype isEqualToString:@"hvc1"] )
+		self.pixel_format = self.bitdepth > 10 ? kCVPixelFormatType_422YpCbCr16 : self.bitdepth == 10 ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange : kCVPixelFormatType_420YpCbCr8Planar;
 
 	NSMutableDictionary *dictionary=[[NSDictionary dictionaryWithObjectsAndKeys:
 									  [NSNumber numberWithInt:(int)self.pixel_format],
@@ -178,6 +202,8 @@ char error[2048];
 		return @"Motion JPEG";
 	else if( [self.subtype isEqualToString:@"avc1"] )
 		return @"H.264";
+	else if( [self.subtype isEqualToString:@"hvc1"] )
+		return @"HEVC";
 	else if( [self.subtype isEqualToString:@"apcn"] )
 		return @"Apple ProRes 422 SD";
 	else if( [self.subtype isEqualToString:@"apch"] )
@@ -249,15 +275,15 @@ VP_API BOOL in_get_properties( voo_sequence_t *p_info, void *p_user_seq ){
 	p_info->fps = mov_reader.fps;
 	p_info->color_space = vooCS_YUV;
 	p_info->channel_order = vooCO_c123;
+	p_info->bits_per_channel = mov_reader.bitdepth;
 	if( mov_reader.pixel_format == kCVPixelFormatType_422YpCbCr10 ){
 		p_info->arrangement = vooDA_v210;
-		p_info->bits_per_channel = 10;
 	} else if( mov_reader.pixel_format == kCVPixelFormatType_444YpCbCr10 ){
 		p_info->arrangement = vooDA_v410;
-		p_info->bits_per_channel = 10;
+	} else if( mov_reader.pixel_format == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange ){
+		p_info->arrangement = vooDA_p010;//vooDA_planar_420; // we re-arrange it to have PQ conversion in vooya
 	} else {
 		p_info->arrangement = vooDA_planar_420;
-		p_info->bits_per_channel = 8;
 	}
 
 	return TRUE;
@@ -298,42 +324,79 @@ VP_API BOOL in_load( unsigned int frame, char *p_buffer, BOOL *pb_skipped, void 
 	if( mov_reader.next_frame >= mov_reader.frames )
 		mov_reader.eof = YES;
 
-	if( mov_reader.pixel_format == kCVPixelFormatType_420YpCbCr8Planar ){
+	if (mov_reader.pixel_format == kCVPixelFormatType_420YpCbCr8Planar)
+	{
+		CMSampleBufferRef buffer = [assetReaderOutput copyNextSampleBuffer];
+		if( assetReader.status == AVAssetReaderStatusFailed ) goto err;
+		CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(buffer);
+		CVPixelBufferLockBaseAddress(imageBuffer,0);
+
+		size_t srcBytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
+		size_t width = CVPixelBufferGetWidth(imageBuffer);
+		size_t height = CVPixelBufferGetHeight(imageBuffer);
+		size_t tgtBytesPerRow = width * ((mov_reader.bitdepth+7)>>3);
+		uint8_t *src_buff;
+		src_buff = CVPixelBufferGetBaseAddressOfPlane(imageBuffer,0);
+		srcBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer,0);
+		for( size_t y=height; y--; ){
+			memcpy( p_buffer, src_buff, tgtBytesPerRow);
+			p_buffer += tgtBytesPerRow;
+			src_buff += srcBytesPerRow;
+		}
+		src_buff = CVPixelBufferGetBaseAddressOfPlane(imageBuffer,1);
+		srcBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer,1);
+		height >>= 1;
+		width >>= 1;
+		tgtBytesPerRow = width * ((mov_reader.bitdepth+7)>>3);
+		for( size_t y=height; y--; ){
+			memcpy( p_buffer, src_buff, tgtBytesPerRow);
+			p_buffer += tgtBytesPerRow;
+			src_buff += srcBytesPerRow;
+		}
+		src_buff = CVPixelBufferGetBaseAddressOfPlane(imageBuffer,2);
+		srcBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer,2);
+		for( size_t y=height; y--; ){
+			memcpy( p_buffer, src_buff, tgtBytesPerRow);
+			p_buffer += tgtBytesPerRow;
+			src_buff += srcBytesPerRow;
+		}
+
+		CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
+		CVPixelBufferUnlockBaseAddress(imageBuffer, 1);
+		CVPixelBufferUnlockBaseAddress(imageBuffer, 2);
+
+	} else if( mov_reader.pixel_format == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange) {
 
 		CMSampleBufferRef buffer = [assetReaderOutput copyNextSampleBuffer];
 		if( assetReader.status == AVAssetReaderStatusFailed ) goto err;
 		CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(buffer);
 		CVPixelBufferLockBaseAddress(imageBuffer,0);
 
-		size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
 		size_t width = CVPixelBufferGetWidth(imageBuffer);
 		size_t height = CVPixelBufferGetHeight(imageBuffer);
+		size_t tgtBytesPerRow = width * ((mov_reader.bitdepth+7)>>3);
+
 		uint8_t *src_buff;
 		src_buff = CVPixelBufferGetBaseAddressOfPlane(imageBuffer,0);
-		bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer,0);
+		size_t srcBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer,0);
+
 		for( size_t y=height; y--; ){
-			memcpy( p_buffer, src_buff, bytesPerRow);
-			p_buffer += width;
-			src_buff += bytesPerRow;
+			memcpy( p_buffer, src_buff, tgtBytesPerRow);
+			p_buffer += tgtBytesPerRow;
+			src_buff += srcBytesPerRow;
 		}
 		src_buff = CVPixelBufferGetBaseAddressOfPlane(imageBuffer,1);
-		bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer,1);
+		srcBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer,1);
 		height >>= 1;
 		width >>= 1;
+		tgtBytesPerRow = 2*width * ((mov_reader.bitdepth+7)>>3);
 		for( size_t y=height; y--; ){
-			memcpy( p_buffer, src_buff, bytesPerRow);
-			p_buffer += width;
-			src_buff += bytesPerRow;
+			memcpy( p_buffer, src_buff, tgtBytesPerRow);
+			p_buffer += tgtBytesPerRow;
+			src_buff += srcBytesPerRow;
 		}
-		src_buff = CVPixelBufferGetBaseAddressOfPlane(imageBuffer,2);
-		bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer,2);
-		for( size_t y=height; y--; ){
-			memcpy( p_buffer, src_buff, bytesPerRow);
-			p_buffer += width;
-			src_buff += bytesPerRow;
-		}
-
 		CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
+		CVPixelBufferUnlockBaseAddress(imageBuffer, 1);
 
 	} else {
 
@@ -347,7 +410,6 @@ VP_API BOOL in_load( unsigned int frame, char *p_buffer, BOOL *pb_skipped, void 
 		uint8_t *src_buff = CVPixelBufferGetBaseAddressOfPlane(imageBuffer,0);
 		bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer,0);
 		memcpy( p_buffer, src_buff, height * bytesPerRow);
-
 		CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
 	}
 
@@ -414,6 +476,9 @@ BOOL in_get_meta( int idx, char *buffer_k, char *buffer_v, void *p_user_seq ){
 			bps /= 1000;
 		}
 		sprintf( buffer_v, "%1.2f%sb/s", bps, u );
+	} else if( idx == _idx++ ){
+		sprintf( buffer_k, "Bits per channel" );
+		sprintf( buffer_v, "%ibit", mov_reader.bitdepth );
 	} else return FALSE;
 
 	return TRUE;
@@ -428,17 +493,17 @@ VP_API void voo_describe( voo_plugin_t *p_plugin )
 	p_plugin->voo_version = VOO_PLUGIN_API_VERSION;
 
 	// plugin main properties
-	p_plugin->name = "Quicktime Movie / MP4 Input";
-	p_plugin->description = "Brings support for Quicktime Movie and MPEG-4 input.";
-	p_plugin->copyright = "(c) 2018 A. Neddens, LGPL";
-	p_plugin->version = "ver1.2";
+	p_plugin->name = "Quicktime Movie / MP4 Input (w/ HEVC)";
+	p_plugin->description = "Brings support for Quicktime Movie and MPEG-4 input (w/ HEVC).";
+	p_plugin->copyright = "";
+	p_plugin->version = "ver0.0";
 
 	// p_user could point to static data we need everywhere.
 	p_plugin->p_user = NULL;
 
-	p_plugin->input.uid = "voo.mov.0";
-	p_plugin->input.name = "Quicktime/MPEG-4 Movie Support";
-	p_plugin->input.description = "Quicktime/MPEG-4 Movie";
+	p_plugin->input.uid = "voo.mov.1";
+	p_plugin->input.name = "Quicktime/MPEG-4 Movie Support (w/ HEVC)";
+	p_plugin->input.description = "Quicktime/MPEG-4 Movie (w/ HEVC)";
 	p_plugin->input.close = in_close;
 	p_plugin->input.get_properties = in_get_properties;
 	p_plugin->input.framecount = in_framecount;
