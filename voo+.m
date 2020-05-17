@@ -107,12 +107,6 @@ char error[2048];
 		return FALSE;
 	}
 
-	if( [self.subtype isEqualToString:@"hvc1"] ){
-		self.error = @"HEVC is not supported.";
-		[self report:self.error];
-		return FALSE;
-	}
-
 	AVAssetTrack *videoTrack0 = [videoTracks objectAtIndex:0];
 
 	CGSize size = [videoTrack0 naturalSize];
@@ -126,6 +120,12 @@ char error[2048];
 		FourCharCode subType = CMFormatDescriptionGetMediaSubType(desc);
 		self.type = [NSString stringWithCString:(const char *)FourCC2Str(codec) encoding:NSUTF8StringEncoding];
 		self.subtype = [NSString stringWithCString:(const char *)FourCC2Str(subType) encoding:NSUTF8StringEncoding];
+	}
+
+	if( [self.subtype isEqualToString:@"hvc1"] ){
+		self.error = @"HEVC is not supported.";
+		[self report:self.error];
+		return FALSE;
 	}
 
 	self.pixel_format = [self.subtype isEqualToString:@"avc1"]
