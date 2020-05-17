@@ -151,11 +151,11 @@ char error[2048];
 	else if( [self.subtype isEqualToString:@"hvc1"] )
 		self.pixel_format = self.bitdepth > 10 ? kCVPixelFormatType_422YpCbCr16 : self.bitdepth == 10 ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange : kCVPixelFormatType_420YpCbCr8Planar;
 
-	// if( [self.subtype isEqualToString:@"hvc1"] ){
-	// 	self.error = @"HEVC is not supported.";
-	// 	[self report:self.error];
-	// 	return FALSE;
-	// }
+	if( [self.subtype isEqualToString:@"hvc1"] ){
+		self.error = @"HEVC is not supported.";
+		[self report:self.error];
+		return FALSE;
+	}
 
 	NSMutableDictionary *dictionary=[[NSDictionary dictionaryWithObjectsAndKeys:
 									  [NSNumber numberWithInt:(int)self.pixel_format],
@@ -493,17 +493,17 @@ VP_API void voo_describe( voo_plugin_t *p_plugin )
 	p_plugin->voo_version = VOO_PLUGIN_API_VERSION;
 
 	// plugin main properties
-	p_plugin->name = "Quicktime Movie / MP4 Input (w/ HEVC)";
-	p_plugin->description = "Brings support for Quicktime Movie and MPEG-4 input (w/ HEVC).";
-	p_plugin->copyright = "";
-	p_plugin->version = "ver0.0";
+	p_plugin->name = "Quicktime Movie / MP4 Input";
+	p_plugin->description = "Brings support for Quicktime Movie and MPEG-4 input.";
+	p_plugin->copyright = "(c) 2020 A. Neddens, LGPL";
+	p_plugin->version = "ver1.3";
 
 	// p_user could point to static data we need everywhere.
 	p_plugin->p_user = NULL;
 
 	p_plugin->input.uid = "voo.mov.1";
-	p_plugin->input.name = "Quicktime/MPEG-4 Movie Support (w/ HEVC)";
-	p_plugin->input.description = "Quicktime/MPEG-4 Movie (w/ HEVC)";
+	p_plugin->input.name = "Quicktime/MPEG-4 Movie Support";
+	p_plugin->input.description = "Quicktime/MPEG-4 Movie";
 	p_plugin->input.close = in_close;
 	p_plugin->input.get_properties = in_get_properties;
 	p_plugin->input.framecount = in_framecount;
