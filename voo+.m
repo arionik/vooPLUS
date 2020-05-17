@@ -151,11 +151,11 @@ char error[2048];
 	else if( [self.subtype isEqualToString:@"hvc1"] )
 		self.pixel_format = self.bitdepth > 10 ? kCVPixelFormatType_422YpCbCr16 : self.bitdepth == 10 ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange : kCVPixelFormatType_420YpCbCr8Planar;
 
-	if( [self.subtype isEqualToString:@"hvc1"] ){
-		self.error = @"HEVC is not supported.";
-		[self report:self.error];
-		return FALSE;
-	}
+	// if( [self.subtype isEqualToString:@"hvc1"] ){
+	// 	self.error = @"HEVC is not supported.";
+	// 	[self report:self.error];
+	// 	return FALSE;
+	// }
 
 	NSMutableDictionary *dictionary=[[NSDictionary dictionaryWithObjectsAndKeys:
 									  [NSNumber numberWithInt:(int)self.pixel_format],
