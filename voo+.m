@@ -237,7 +237,7 @@ char error[2048];
 
 
 
-VP_API BOOL in_responsible( const vooChar_t *filename, char *sixteen_bytes, void *p_user ){
+vooBOOL in_responsible( const vooChar_t *filename, char *sixteen_bytes, void *p_user ){
 	char magic[] = {0x00, 0x00, 0x00, 0x14, 0x66, 0x74, 0x79, 0x70, 0x71, 0x74, 0x20, 0x20};
 	if( !memcmp( sixteen_bytes, magic, sizeof(magic) ) ) return TRUE;
 	uint32_t len = (uint32_t)voo_strlen( filename );
@@ -249,7 +249,7 @@ VP_API BOOL in_responsible( const vooChar_t *filename, char *sixteen_bytes, void
 					 ||!voo_strcmp( _filename + len - 4, _v(".mp4") ));
 }
 
-VP_API BOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, void **pp_user ){
+vooBOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, void **pp_user ){
 	movReader *mov_reader = [movReader new];
 	*pp_user = mov_reader;
 	mov_reader.filename = [NSString stringWithUTF8String:filename];
@@ -262,12 +262,12 @@ VP_API BOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, void
 	return [mov_reader createReader:0 appInfo:p_app_info];
 }
 
-VP_API void in_close( void *p_user_seq ){
+void in_close( void *p_user_seq ){
 	movReader *mov_reader = (__bridge movReader *)p_user_seq;
 	[mov_reader release];
 }
 
-VP_API BOOL in_get_properties( voo_sequence_t *p_info, void *p_user_seq ){
+vooBOOL in_get_properties( voo_sequence_t *p_info, void *p_user_seq ){
 
 	movReader *mov_reader = (__bridge movReader *)p_user_seq;
 	p_info->width = (int)mov_reader.width;
@@ -289,12 +289,12 @@ VP_API BOOL in_get_properties( voo_sequence_t *p_info, void *p_user_seq ){
 	return TRUE;
 }
 
-VP_API unsigned int in_framecount( void *p_user_seq ){
+unsigned int in_framecount( void *p_user_seq ){
 	movReader *mov_reader = (__bridge movReader *)p_user_seq;
 	return (unsigned int)mov_reader.frames;
 }
 
-VP_API BOOL in_seek( unsigned int frame, void *p_user_seq ){
+vooBOOL in_seek( unsigned int frame, void *p_user_seq ){
 
 	movReader *mov_reader = (__bridge movReader *)p_user_seq;
 
@@ -303,7 +303,7 @@ VP_API BOOL in_seek( unsigned int frame, void *p_user_seq ){
 	return [mov_reader createReader:frame];
 }
 
-VP_API BOOL in_load( unsigned int frame, char *p_buffer, BOOL *pb_skipped, void **pp_frame_user, void *p_user_seq ){
+vooBOOL in_load( unsigned int frame, char *p_buffer, vooBOOL *pb_skipped, void **pp_frame_user, void *p_user_seq ){
 
 	movReader *mov_reader = (__bridge movReader *)p_user_seq;
 
@@ -423,20 +423,20 @@ err:
 	return FALSE;
 }
 
-VP_API BOOL in_eof( void *p_user_seq ){
+vooBOOL in_eof( void *p_user_seq ){
 	movReader *mov_reader = (__bridge movReader *)p_user_seq;
 	return mov_reader.eof;
 }
 
-VP_API BOOL in_good( void *p_user_seq ){
+vooBOOL in_good( void *p_user_seq ){
 	return TRUE;
 }
 
-VP_API BOOL in_reload( void *p_user_seq ){
+vooBOOL in_reload( void *p_user_seq ){
 	return FALSE;
 }
 
-VP_API void in_error( const char **pp_err, void *p_user_seq ){
+void in_error( const char **pp_err, void *p_user_seq ){
 	movReader *mov_reader = (__bridge movReader *)p_user_seq;
 	const char *err = [mov_reader.error UTF8String];
 	if( strlen(err) )
@@ -444,7 +444,7 @@ VP_API void in_error( const char **pp_err, void *p_user_seq ){
 	*pp_err = error;
 }
 
-VP_API BOOL in_file_suffixes( int idx, char const **pp_suffix, void *p_user_seq ){
+vooBOOL in_file_suffixes( int idx, char const **pp_suffix, void *p_user_seq ){
 	switch(idx){
 		case 0: *pp_suffix = "mov"; break;
 		case 1: *pp_suffix = "mp4"; break;
@@ -454,7 +454,7 @@ VP_API BOOL in_file_suffixes( int idx, char const **pp_suffix, void *p_user_seq 
 	return TRUE;
 }
 
-BOOL in_get_meta( int idx, char *buffer_k, char *buffer_v, void *p_user_seq ){
+vooBOOL in_get_meta( int idx, char *buffer_k, char *buffer_v, void *p_user_seq ){
 
 	movReader *mov_reader = (__bridge movReader *)p_user_seq;
 	int _idx=0;
