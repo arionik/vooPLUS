@@ -27,7 +27,7 @@
 */
 
 
-#define VOO_PLUGIN_API_VERSION 5
+#define VOO_PLUGIN_API_VERSION 6
 
 #ifdef _WIN32
 	#include <wchar.h>
@@ -47,30 +47,25 @@
 	#define voo_snprintf snprintf
 	#define voo_fopen fopen
 	#define _v(v)v
-	#define VP_API
+	#ifdef VOO_PLUGIN_SYMBOLS_HIDDEN
+		#define VP_API  __attribute__ ((visibility ("default")))
+	#else
+		#define VP_API
+	#endif
 #endif
 
-#ifndef __OBJC__
-	typedef int BOOL;
-	#define TRUE  1
-	#define FALSE 0
-#endif
+typedef int vooBOOL;
+#define TRUE  1
+#define FALSE 0
 
 
 // display pixel data type
 typedef struct
 {
-#ifdef __APPLE__
-	unsigned char x;
-	unsigned char r;
-	unsigned char g;
-	unsigned char b;
-#else
 	unsigned char b;
 	unsigned char g;
 	unsigned char r;
 	unsigned char x;
-#endif
 } voo_target_space_t;
 
 
@@ -205,16 +200,20 @@ typedef struct
 	int bits_per_channel;
 
 	// Whether the video shall be played upside down
-	BOOL b_flipped;
+	vooBOOL b_flipped;
 	// Whether 16bit words shall be byte-swapped
-	BOOL b_toggle_endian;
+	vooBOOL b_toggle_endian;
 	// Whether the values (if integer) shall be treated as signed integers
-	BOOL b_signed;
+	vooBOOL b_signed;
 
 	// number of frames in sequences
 	unsigned int frame_count;
 
-	char reserved[28];
+	// Chroma subsampling. Set, but never read by vooya.
+	int chroma_subsampling_hor;
+	int chroma_subsampling_ver;
+
+	char reserved[20];
 
 } voo_sequence_t;
 
@@ -262,20 +261,18 @@ typedef struct {
 // represents one pixel in the respective frame.
 typedef struct {
 
-	// Pixels a and b from sequence A and B, component 1,2,3
+	// Pixel buffer a and b from sequence A and B, component 1,2,3
 	// and data type (inferred from voo_sequence_t::p_info)
-	union{ int c1_a; double c1_ad; };
-	union{ int c2_a; double c2_ad; };
-	union{ int c3_a; double c3_ad; };
-	union{ int c1_b; double c1_bd; };
-	union{ int c2_b; double c2_bd; };
-	union{ int c3_b; double c3_bd; };
+	float *c1_a;
+	float *c2_a;
+	float *c3_a;
+	float *c1_b;
+	float *c2_b;
+	float *c3_b;
 
-	int x,y; // position relative to top, left
+	int stride;
 
 	voo_video_frame_metadata_t *p_metadata;
-
-	unsigned int thread_id; // which thread is calling
 
 } voo_diff_t;
 
@@ -331,11 +328,13 @@ typedef struct
 
 		// For type == vooCallback_Native:
 		// Called by vooya for each video frame with native data before color
-		// conversion to RGB 8bit, and without image adjustments. Can be used to
+		// conversion to display format, and without image adjustments. Can be used to
 		// feed the data outside of vooya. Properties like resolution
 		// and data format are given beforehand in on_load_video( ... ); you can
 		// save them in p_metadata->p_user_video. "p_data" is the image data.
-		void (*method_native)( unsigned char *p_data,
+		// Data format is 32bit float planar, with equal stride for all planes,
+		// but same chroma subsampling as the input.
+		void (*method_native)( float *ch1, float *ch2, float *ch3, int stride,
 							  voo_video_frame_metadata_t *p_metadata );
 
 		// For type == vooCallback_EOTF:
@@ -380,7 +379,7 @@ typedef struct {
 	// this input in the file open dialog. If b_fileBased is FALSE, an entry for this input
 	// will be displayed in the plugins-menu that the user can select as current input.
 	// In that case, vooya will call open_nowhere( ... ).
-	BOOL b_fileBased;
+	vooBOOL b_fileBased;
 
 	// Flags to signal something to vooya
 	#define VOOInputFlag_DoNotCache 0x01 // tell vooya not to cache anything
@@ -394,12 +393,12 @@ typedef struct {
 	// Only if input comes from stdin and "--container [your input UID]" is specified,
 	// responsible will not be called, but open( ... ) directly.
 	// For stdin, the filename is simply "-".
-	BOOL (*responsible)( const vooChar_t *filename, char *sixteen_bytes, void *p_user );
+	vooBOOL (*responsible)( const vooChar_t *filename, char *sixteen_bytes, void *p_user );
 	// The global p_user pointer you may have set in voo_describe( ... )
 	// is given here as *pp_user_seq, but you can alter it. In that case, subsequent
 	// calls to methods of this struct will have the new, per-sequence value. This is
 	// important on macOS, where multiple instances of this input may exist.
-	BOOL (*open)( const vooChar_t *filename, voo_app_info_t *p_app_info, void **pp_user_seq );
+	vooBOOL (*open)( const vooChar_t *filename, voo_app_info_t *p_app_info, void **pp_user_seq );
 
 	// If the input is not based on file input (b_fileBased is FALSE),
 	// open_nowhere will be called. The global p_user pointer you may have set in
@@ -407,18 +406,18 @@ typedef struct {
 	// In that case, subsequent calls to methods of this struct will have the new,
 	// per-sequence value. This is important on macOS, where multiple instances
 	// of this input may exist.
-	BOOL (*open_nowhere)( voo_app_info_t *p_app_info, void **pp_user_seq );
+	vooBOOL (*open_nowhere)( voo_app_info_t *p_app_info, void **pp_user_seq );
 
 	// Called by vooya to get information about the video you provide.
 	// You should fill p_info with correct information to make vooya play.
-	BOOL (*get_properties)( voo_sequence_t *p_info, void *p_user_seq );
+	vooBOOL (*get_properties)( voo_sequence_t *p_info, void *p_user_seq );
 
 	// Client shall return the number of frames available, or ~0U if no
 	// framecount can be given (e.g. stdin).
 	unsigned int (*framecount)( void *p_user_seq );
 
 	// Shall issue a seek by the client plugin to frame number "frame"
-	BOOL (*seek)( unsigned int frame, void *p_user_seq );
+	vooBOOL (*seek)( unsigned int frame, void *p_user_seq );
 
 	// Load contents of frame number "frame" into p_buffer. p_buffer has a size
 	// appropriate to the format given by the client in get_properties( ... ).
@@ -426,12 +425,12 @@ typedef struct {
 	// with data, or to TRUE if client decided to no reload the frame if e.g. "frame" is
 	// repeated. "pp_user_frame" can hold custom data and is later available
 	// in voo_video_frame_metadata_t::p_user_frame.
-	BOOL (*load)( unsigned int frame, char *p_buffer, BOOL *pb_skipped,
+	vooBOOL (*load)( unsigned int frame, char *p_buffer, vooBOOL *pb_skipped,
 				 void **pp_user_frame, void *p_user_seq );
 
-	BOOL (*eof)( void *p_user_seq );
-	BOOL (*good)( void *p_user_seq );
-	BOOL (*reload)( void *p_user_seq );
+	vooBOOL (*eof)( void *p_user_seq );
+	vooBOOL (*good)( void *p_user_seq );
+	vooBOOL (*reload)( void *p_user_seq );
 	void (*close)( void *p_user_seq );
 
 	// After open( ... ) or open_nowhere( ... ), this is called.
@@ -441,13 +440,13 @@ typedef struct {
 	// Called by vooya to get supported file extensions. Those are then displayed in
 	// the "Open file" dialog. vooya will start with idx=0, then increment idx and
 	// call this again as long as you return TRUE. (only called when b_fileBased is true)
-	BOOL (*file_suffixes)( int idx, const char **pp_suffix, void *p_user_seq );
+	vooBOOL (*file_suffixes)( int idx, const char **pp_suffix, void *p_user_seq );
 
 	// Called by vooya to enumerate meta information tags about the video you provide.
 	// idx is counting up for each call as long as TRUE is return. Return FALSE to finish the 
 	// enumeration. "buffer_k" char[64] and shall take a key, "buffer_v" char[1024] and
 	// shall take a corresponding value.
-	BOOL (*get_meta)( int idx, char *buffer_k, char *buffer_v, void *p_user_seq );
+	vooBOOL (*get_meta)( int idx, char *buffer_k, char *buffer_v, void *p_user_seq );
 
 	// vooya gives you a callback that you might call whenever the sequence's number of frames
 	// will change. Note that p_vooya_ctx must not be altered and is valid only as long as this input is bound.
