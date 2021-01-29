@@ -48,7 +48,7 @@ typedef struct
 	AVCodec *codec;
 
 	int64_t expected_seek_tgt;
-	BOOL b_eof;
+	vooBOOL b_eof;
 #define ERRBUFF_LEN 2048
 	char last_err[ERRBUFF_LEN];
 	
@@ -62,7 +62,7 @@ typedef struct
 
 
 
-VP_API BOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, void **pp_user ){
+VP_API vooBOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, void **pp_user ){
 	ffmpeg_reader_t *p_reader = (ffmpeg_reader_t *)malloc(sizeof(ffmpeg_reader_t));
 	memset( p_reader, 0x0, sizeof(ffmpeg_reader_t) );
 	*pp_user = p_reader;
@@ -228,7 +228,7 @@ VP_API void in_close( void *p_user ){
 	avformat_free_context( p_reader->format_ctx );
 }
 
-VP_API BOOL in_get_properties( voo_sequence_t *p_info, void *p_user ){
+VP_API vooBOOL in_get_properties( voo_sequence_t *p_info, void *p_user ){
 	ffmpeg_reader_t *p_reader = (ffmpeg_reader_t *)p_user;
 	*p_info = p_reader->properties;
 	return TRUE;
@@ -239,7 +239,7 @@ VP_API unsigned int in_framecount( void *p_user ){
 	return ( unsigned int)p_reader->stream->nb_frames;
 }
 
-VP_API BOOL in_seek( unsigned int frame, void *p_user )
+VP_API vooBOOL in_seek( unsigned int frame, void *p_user )
 {
 	ffmpeg_reader_t *p_reader = (ffmpeg_reader_t *)p_user;
 
@@ -256,7 +256,7 @@ VP_API BOOL in_seek( unsigned int frame, void *p_user )
 	return FALSE;
 }
 
-VP_API BOOL in_load( unsigned int frame, char *p_buffer, BOOL *pb_skipped, void **pp_frame_user, void *p_user )
+VP_API vooBOOL in_load( unsigned int frame, char *p_buffer, vooBOOL *pb_skipped, void **pp_frame_user, void *p_user )
 {
 	int32_t i_ret;
 	ffmpeg_reader_t *p_reader = (ffmpeg_reader_t *)p_user;
@@ -323,16 +323,16 @@ VP_API BOOL in_load( unsigned int frame, char *p_buffer, BOOL *pb_skipped, void 
 	return TRUE;
 }
 
-VP_API BOOL in_eof( void *p_user ){
+VP_API vooBOOL in_eof( void *p_user ){
 	ffmpeg_reader_t *p_reader = (ffmpeg_reader_t *)p_user;
 	return p_reader->b_eof;
 }
 
-VP_API BOOL in_good( void *p_user ){ return TRUE; }
+VP_API vooBOOL in_good( void *p_user ){ return TRUE; }
 
-VP_API BOOL in_reload( void *p_user ){ return TRUE; }
+VP_API vooBOOL in_reload( void *p_user ){ return TRUE; }
 
-VP_API BOOL get_meta( int idx, char *buffer_k, char *buffer_v, void *p_user_seq )
+VP_API vooBOOL get_meta( int idx, char *buffer_k, char *buffer_v, void *p_user_seq )
 {
 	int32_t _idx = 0;
 	ffmpeg_reader_t *p_reader = (ffmpeg_reader_t *)p_user_seq;
@@ -388,7 +388,7 @@ VP_API void in_error( const char **pp_err, void *p_user_seq )
 
 
 
-VP_API BOOL in_responsible( const vooChar_t *_filename, char *sixteen_bytes, void *p_user ){
+VP_API vooBOOL in_responsible( const vooChar_t *_filename, char *sixteen_bytes, void *p_user ){
 	if( voo_strlen(_filename) < 4 )
 		return FALSE;
 
@@ -401,7 +401,7 @@ VP_API BOOL in_responsible( const vooChar_t *_filename, char *sixteen_bytes, voi
 		|| !voo_strcmp( filename + voo_strlen( filename ) - 4, _v( ".mp4" ) );
 }
 
-VP_API BOOL in_file_suffixes( int idx, char const **pp_suffix, void *p_user ){
+VP_API vooBOOL in_file_suffixes( int idx, char const **pp_suffix, void *p_user ){
 	switch(idx){
 	case 0: *pp_suffix = "mov"; break;
 	case 1: *pp_suffix = "mp4"; break;
