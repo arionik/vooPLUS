@@ -88,62 +88,44 @@ VP_API vooBOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, v
 		return FALSE;
 	}
 
-	av_register_all();
-	avcodec_register_all();
-
 	av_init_packet( &p_reader->avpkt );
 	p_reader->picture = av_frame_alloc();
 	p_reader->format_ctx = avformat_alloc_context();
 
-	int ret;
-	
-	AVInputFormat *pFmt = NULL;
-	ret = avformat_open_input( &p_reader->format_ctx, c_filename, pFmt, NULL );
+	int ret = avformat_open_input( &p_reader->format_ctx, c_filename, NULL, NULL );
 
-	if( p_reader->format_ctx == NULL )
-	{
+	if( p_reader->format_ctx == NULL ) {
 		av_strerror( ret, p_reader->last_err, ERRBUFF_LEN );
 		return FALSE;
 	}
 
-	int video_stream_index = av_find_best_stream( p_reader->format_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &p_reader->codec, 0x0 );
-	if( video_stream_index == AVERROR_STREAM_NOT_FOUND )
-	{
+	// if (!avformat_find_stream_info(p_reader->format_ctx, NULL)) {
+	// 	av_strerror(ret, p_reader->last_err, ERRBUFF_LEN);
+	// 	sprintf(p_reader->last_err, "No Video Stream found"); // TODO
+	// 	p_reader->message(p_reader->p_msg_cargo, p_reader->last_err);
+	// 	return FALSE;
+	// }
+
+	int video_stream_index = av_find_best_stream( p_reader->format_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0x0 );
+	if( video_stream_index == AVERROR_STREAM_NOT_FOUND ) {
 		sprintf( p_reader->last_err, "No Video Stream found" );
 		p_reader->message( p_reader->p_msg_cargo, p_reader->last_err );
-		avcodec_free_context( &p_reader->codec_ctx );
 		return FALSE;
-	}
-	if( video_stream_index == AVERROR_DECODER_NOT_FOUND )
-	{
-		sprintf( p_reader->last_err, "No Decoder found" );
-		p_reader->message( p_reader->p_msg_cargo, p_reader->last_err );
-		avcodec_free_context( &p_reader->codec_ctx );
+	} else if (video_stream_index == AVERROR_DECODER_NOT_FOUND) {
+		sprintf(p_reader->last_err, "No Decoder found");
+		p_reader->message(p_reader->p_msg_cargo, p_reader->last_err);
+		return FALSE;
+	} else if (video_stream_index == AVERROR_DECODER_NOT_FOUND) {
+		sprintf(p_reader->last_err, "No stream found");
+		p_reader->message(p_reader->p_msg_cargo, p_reader->last_err);
 		return FALSE;
 	}
 
 	p_reader->stream = p_reader->format_ctx->streams[ video_stream_index ];
 
-	if( p_reader->stream->codecpar->codec_id != AV_CODEC_ID_PRORES
-	 && p_reader->stream->codecpar->codec_id != AV_CODEC_ID_H264
-	 && p_reader->stream->codecpar->codec_id != AV_CODEC_ID_HEVC
-	 && p_reader->stream->codecpar->codec_id != AV_CODEC_ID_V210
-	 && p_reader->stream->codecpar->codec_id != AV_CODEC_ID_MJPEG )
+	if (!(p_reader->codec = avcodec_find_decoder(p_reader->stream->codecpar->codec_id)))
 	{
-		av_frame_free( &p_reader->picture );
-		avformat_close_input( &p_reader->format_ctx );
-		avformat_free_context( p_reader->format_ctx );
-		sprintf( p_reader->last_err, "This is not a supported file." );
-		p_reader->message( p_reader->p_msg_cargo, p_reader->last_err );
-		return FALSE;
-	}
-
-	if( !p_reader->codec )
-		p_reader->codec = avcodec_find_decoder( p_reader->stream->codecpar->codec_id );
-
-	if( !p_reader->codec )
-	{
-		sprintf( p_reader->last_err, "Cannot find a decoder." );
+		sprintf( p_reader->last_err, "Cannot find a decoder with ID %i.", p_reader->stream->codecpar->codec_id);
 		p_reader->message( p_reader->p_msg_cargo, p_reader->last_err );
 		av_frame_free( &p_reader->picture );
 		avformat_close_input( &p_reader->format_ctx );
@@ -153,13 +135,8 @@ VP_API vooBOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, v
 
 	p_reader->codec_ctx = avcodec_alloc_context3( p_reader->codec );
 	avcodec_parameters_to_context( p_reader->codec_ctx, p_reader->stream->codecpar );
-	if( p_reader->codec->capabilities & CODEC_CAP_TRUNCATED )
-		p_reader->codec_ctx->flags |= CODEC_FLAG_TRUNCATED; /* We may send incomplete frames */
-	if( p_reader->codec->capabilities & CODEC_FLAG2_CHUNKS )
-		p_reader->codec_ctx->flags |= CODEC_FLAG2_CHUNKS;
 	ret = avcodec_open2( p_reader->codec_ctx, p_reader->codec, NULL );
 	
-
 	if( ret != 0 ) {
 		av_frame_free( &p_reader->picture );
 		avformat_close_input( &p_reader->format_ctx );
@@ -337,7 +314,7 @@ VP_API vooBOOL get_meta( int idx, char *buffer_k, char *buffer_v, void *p_user_s
 	int32_t _idx = 0;
 	ffmpeg_reader_t *p_reader = (ffmpeg_reader_t *)p_user_seq;
 
-	if( idx == _idx++ ){
+	if (idx == _idx++) {
 		char *codec = 0x0;
 		uint32_t fourcc = p_reader->stream->codecpar->codec_tag;
 		if( fourcc == 'ncpa' )
@@ -398,6 +375,8 @@ VP_API vooBOOL in_responsible( const vooChar_t *_filename, char *sixteen_bytes, 
 	for( ; *p++; ) *p = tolower( *p );
 
 	return !voo_strcmp( filename + voo_strlen( filename ) - 4, _v( ".mov" ) )
+		|| !voo_strcmp( filename + voo_strlen( filename ) - 4, _v( ".mkv" ) )
+		|| !voo_strcmp( filename + voo_strlen( filename ) - 4, _v( ".mxf" ) )
 		|| !voo_strcmp( filename + voo_strlen( filename ) - 4, _v( ".mp4" ) );
 }
 
@@ -412,7 +391,7 @@ VP_API vooBOOL in_file_suffixes( int idx, char const **pp_suffix, void *p_user )
 
 
 
-
+const char g_version[2048];
 VP_API void voo_describe( voo_plugin_t *p_plugin )
 {
 	p_plugin->voo_version = VOO_PLUGIN_API_VERSION;
@@ -423,13 +402,17 @@ VP_API void voo_describe( voo_plugin_t *p_plugin )
 	#else
 	#define  DEBUG_STR ""
 	#endif
-	p_plugin->name = "Quicktime Movie / MP4 Input" DEBUG_STR;
-	p_plugin->description = "Brings support for Quicktime Movie and MPEG-4 input. This software uses libraries from the FFmpeg project under the LGPLv2.1.";
-	p_plugin->copyright = "A. Neddens (c) 2018, LGPL";
-	p_plugin->version = "ver1.2";
+	p_plugin->name = "Quicktime Movie / MP4 Input (FFmpeg)" DEBUG_STR;
+	p_plugin->description = "Brings support for Quicktime Movie and MPEG-4 input.";
+	p_plugin->copyright = "A. Neddens (c) 2021, LGPL";
+	p_plugin->version = g_version;
+	sprintf(g_version, "ver1.3\nThis software uses libraries from the FFmpeg project under the LGPLv2.1\n%s", avcodec_configuration());
+	// unsigned avcodec_version(void);
+	// const char *avcodec_configuration(void);
+	// const char *avcodec_license(void);
 
-	p_plugin->input.uid = "voo.mov.0";
-	p_plugin->input.name = "Quicktime/MPEG-4 Movie Support";
+	p_plugin->input.uid = "voo.ffmpeg.0";
+	p_plugin->input.name = "Quicktime/MPEG-4 Movie Support (FFmpeg)";
 	p_plugin->input.description = "Quicktime/MPEG-4 Movie";
 	p_plugin->input.file_suffixes = in_file_suffixes;
 	p_plugin->input.responsible = in_responsible;
