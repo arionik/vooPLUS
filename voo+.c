@@ -153,10 +153,12 @@ VP_API BOOL in_open( const vooChar_t *filename, voo_app_info_t *p_app_info, void
 
 	p_reader->codec_ctx = avcodec_alloc_context3( p_reader->codec );
 	avcodec_parameters_to_context( p_reader->codec_ctx, p_reader->stream->codecpar );
+#if 0
 	if( p_reader->codec->capabilities & CODEC_CAP_TRUNCATED )
 		p_reader->codec_ctx->flags |= CODEC_FLAG_TRUNCATED; /* We may send incomplete frames */
 	if( p_reader->codec->capabilities & CODEC_FLAG2_CHUNKS )
 		p_reader->codec_ctx->flags |= CODEC_FLAG2_CHUNKS;
+#endif
 	ret = avcodec_open2( p_reader->codec_ctx, p_reader->codec, NULL );
 	
 
@@ -423,14 +425,20 @@ VP_API void voo_describe( voo_plugin_t *p_plugin )
 	#else
 	#define  DEBUG_STR ""
 	#endif
-	p_plugin->name = "Quicktime Movie / MP4 Input" DEBUG_STR;
 	p_plugin->description = "Brings support for Quicktime Movie and MPEG-4 input. This software uses libraries from the FFmpeg project under the LGPLv2.1.";
 	p_plugin->copyright = "A. Neddens (c) 2018, LGPL";
 	p_plugin->version = "ver1.2";
 
+#ifdef __APPLE__
+	p_plugin->name = "Quicktime Movie / MP4 Input (FFmpeg)" DEBUG_STR;
+	p_plugin->input.uid = "voo.ffmpeg.0";
+	p_plugin->input.name = "Quicktime/MPEG-4 Movie Support (FFmpeg)";
+#else
+	p_plugin->name = "Quicktime Movie / MP4 Input" DEBUG_STR;
 	p_plugin->input.uid = "voo.mov.0";
 	p_plugin->input.name = "Quicktime/MPEG-4 Movie Support";
-	p_plugin->input.description = "Quicktime/MPEG-4 Movie";
+#endif
+	p_plugin->input.description = "Quicktime/MPEG-4 FFmpeg Movie";
 	p_plugin->input.file_suffixes = in_file_suffixes;
 	p_plugin->input.responsible = in_responsible;
 	p_plugin->input.open = in_open;
